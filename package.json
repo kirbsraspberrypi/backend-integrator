@@ -1,0 +1,14 @@
+{
+  "name": "backend-integrator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Google Apps Script: create a Drive folder when an Intake Roster row is Approved (rows 1-10 ignored)",
+  "scripts": {
+    "test": "node tests/test.js",
+    "login": "npx @google/clasp login",
+    "deploy": "npx @google/clasp push"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
