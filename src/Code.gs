@@ -70,9 +70,11 @@ function handleEdit(e) {
   const isSingleCell = range.getNumRows() === 1 && range.getNumColumns() === 1;
   if (isSingleCell && isApproved(e.oldValue)) return;
 
-  for (let row = firstRow; row <= lastRow; row++) {
-    processRow(sheet, row);
-  }
+  withLock(() => {
+    for (let row = firstRow; row <= lastRow; row++) {
+      processRow(sheet, row);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -81,9 +83,11 @@ function handleEdit(e) {
 // ---------------------------------------------------------------------------
 function processExistingApprovedRows() {
   const sheet = SpreadsheetApp.getActive().getSheetByName(getEnv().SHEET_NAME);
-  for (let row = CONFIG.FIRST_DATA_ROW; row <= sheet.getLastRow(); row++) {
-    processRow(sheet, row);
-  }
+  withLock(() => {
+    for (let row = CONFIG.FIRST_DATA_ROW; row <= sheet.getLastRow(); row++) {
+      processRow(sheet, row);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +136,20 @@ function processRow(sheet, row) {
 
   parent.createFolder(folderName);
   console.log(`Row ${row}: created "${folderName}".`);
+}
+
+/**
+ * Runs one job at a time. Without this, two quick edits could both see
+ * "no folder yet" and create the same folder twice.
+ */
+function withLock(job) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30 * 1000); // Wait up to 30 seconds for the other run to finish
+  try {
+    job();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function isApproved(value) {
