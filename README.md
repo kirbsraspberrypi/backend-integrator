@@ -18,16 +18,17 @@ Student records start on **row 11**.
 
 1. [What the task asks for](#what-the-task-asks-for)
 2. [Project files](#project-files)
-3. [Setting up your computer](#setting-up-your-computer)
+3. [Packages and dependencies](#packages-and-dependencies)
+4. [Setting up your computer](#setting-up-your-computer)
    - [Linux (Ubuntu)](#linux-ubuntu)
    - [macOS (MacBook)](#macos-macbook)
    - [Windows 10 and up](#windows-10-and-up)
-4. [The .env file](#the-env-file)
-5. [Running the tests](#running-the-tests)
-6. [Putting the script on the Google Sheet](#putting-the-script-on-the-google-sheet)
-7. [How each rule is handled](#how-each-rule-is-handled)
-8. [Phone number regex](#phone-number-regex)
-9. [Troubleshooting](#troubleshooting)
+5. [The .env file](#the-env-file)
+6. [Running the tests](#running-the-tests)
+7. [Putting the script on the Google Sheet](#putting-the-script-on-the-google-sheet)
+8. [How each rule is handled](#how-each-rule-is-handled)
+9. [Phone number regex](#phone-number-regex)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -48,7 +49,8 @@ treating a header or KPI row as a student**. The Drive folder and the phone rege
 | `.env.example` | Template for your settings. Copy it to `.env` and fill it in. |
 | `scripts/configure.js` | Reads `.env` and creates `src/Env.gs` and `.clasp.json`. |
 | `tests/test.js` | Local test that uses a fake copy of the sheet. No Google account needed. |
-| `package.json` | Short commands: `npm test`, `npm run configure`, `npm run login`, `npm run deploy`. |
+| `package.json` | Project dependencies and short commands: `npm test`, `npm run configure`, `npm run login`, `npm run deploy`. |
+| `package-lock.json` | Exact version of every installed package, so every computer gets the same install. |
 
 Created on your computer (git-ignored, never committed):
 
@@ -57,15 +59,83 @@ Created on your computer (git-ignored, never committed):
 | `.env` | You (copied from `.env.example`) | Your Drive folder ID, Script ID and sheet name. |
 | `src/Env.gs` | `npm run configure` | The `.env` values in a form Apps Script can read. |
 | `.clasp.json` | `npm run configure` | Tells clasp which Apps Script project to upload to. |
+| `node_modules/` | `npm ci` | Installed packages (clasp and its dependencies). |
+
+---
+
+## Packages and dependencies
+
+Everything the project uses, where it comes from, and why it's needed.
+
+### 1. System tools (installed once per computer)
+
+| Tool | Version | Why it's needed | Ubuntu | macOS | Windows 10+ |
+|------|---------|-----------------|--------|-------|-------------|
+| **Git** | Any recent | Download (clone) the project | `apt` | Homebrew | `winget` |
+| **Node.js** | **20 or newer** (LTS) | Runs the tests, `npm run configure` and clasp | NodeSource + `apt` | Homebrew | `winget` |
+| **npm** | Comes with Node.js | Installs the project packages, runs the `npm run ...` commands | Included | Included | Included |
+| **curl** | Any | Downloads the Node.js setup script (Ubuntu) and Homebrew (macOS) | `apt` | Built in | Not needed |
+| **Homebrew** | Latest | Package manager used to install Git and Node.js | Not needed | Install script | Not needed |
+| **winget** | Built into Windows 10 (1809+) and 11 | Package manager used to install Git and Node.js | Not needed | Not needed | Built in |
+| **Text editor** | Any | Editing `.env` | `nano` (built in) | TextEdit (built in) | Notepad (built in) |
+
+### 2. Project packages (installed with `npm ci`)
+
+| Package | Version | Type | Why it's needed |
+|---------|---------|------|-----------------|
+| [`@google/clasp`](https://github.com/google/clasp) | `3.4.1` (pinned) | Dev dependency | Google's official command-line tool. Used by `npm run login` and `npm run deploy` to upload the script to Apps Script. |
+
+That's the **only** package the project installs directly. clasp brings its own dependencies
+(for example `googleapis`, `google-auth-library`, `commander`, `inquirer`, `chalk`), for
+**295 packages in total**. Their exact versions are locked in `package-lock.json`.
+
+To see the full list on your computer after installing:
+
+```bash
+npm ls                 # Direct packages
+npm ls --all           # Every package, including sub-dependencies
+npm audit              # Security check (0 vulnerabilities at the time of writing)
+```
+
+> `npm ci` may print "deprecated" warnings for `glob@10.5.0` and `node-domexception@1.0.0`.
+> Both come from inside clasp, aren't used by this project's code, and are safe to ignore.
+
+### 3. Built-in Node.js modules (nothing to install)
+
+| Module | Used in | Purpose |
+|--------|---------|---------|
+| `fs` | `scripts/configure.js`, `tests/test.js` | Read `.env`, write `src/Env.gs` and `.clasp.json`, read `Code.gs` |
+| `path` | `scripts/configure.js`, `tests/test.js` | Build file paths that work on every OS |
+| `vm` | `tests/test.js` | Run `Code.gs` in a sandbox with fake Google services |
+| `assert` | `tests/test.js` | Check test results |
+
+### 4. Google services (built into Apps Script, nothing to install)
+
+| Service | Used for | Permission (OAuth scope) |
+|---------|----------|--------------------------|
+| `SpreadsheetApp` | Reading rows, applying phone validation | `https://www.googleapis.com/auth/spreadsheets` |
+| `DriveApp` | Finding the parent folder, creating student folders | `https://www.googleapis.com/auth/drive` |
+| `ScriptApp` | Installing the edit trigger (`setup`) | `https://www.googleapis.com/auth/script.scriptapp` |
+| `LockService` | Making sure two quick edits can't create the same folder twice | None needed |
+
+These scopes are listed in `src/appsscript.json` and shown on Google's permission screen
+the first time you run `setup`.
+
+### 5. Accounts and access
+
+| Requirement | Why |
+|-------------|-----|
+| **Google account** with edit access to the Intake Roster sheet | To install and run the script |
+| **Edit access to the test Drive folder** | Folders are created there, owned by the account that ran `setup` |
+| **Apps Script API turned on** at <https://script.google.com/home/usersettings> | Only needed for `npm run deploy` |
+| **GitHub access** to `kirbsraspberrypi/backend-integrator` | The repository is private |
 
 ---
 
 ## Setting up your computer
 
-You will install:
-
-- **Git**: to download the project.
-- **Node.js 20 or newer (LTS)**: to run the tests, create the settings file and upload the script.
+You will install the system tools from [Packages and dependencies](#1-system-tools-installed-once-per-computer),
+then the project packages. The steps below cover everything, in order.
 
 > The repository is private. Make sure your GitHub account has been given access.
 
@@ -90,14 +160,17 @@ node --version
 git clone https://github.com/kirbsraspberrypi/backend-integrator.git
 cd backend-integrator
 
-# 5. Run the tests
+# 5. Install the project packages (exact versions from package-lock.json)
+npm ci
+
+# 6. Run the tests
 npm test
 
-# 6. Create your .env file, then open it to fill in your values
+# 7. Create your .env file, then open it to fill in your values
 cp .env.example .env
 nano .env        # Save with Ctrl+O, Enter; exit with Ctrl+X
 
-# 7. Create src/Env.gs (and .clasp.json) from .env
+# 8. Create src/Env.gs (and .clasp.json) from .env
 npm run configure
 ```
 
@@ -121,14 +194,17 @@ node --version
 git clone https://github.com/kirbsraspberrypi/backend-integrator.git
 cd backend-integrator
 
-# 5. Run the tests
+# 5. Install the project packages (exact versions from package-lock.json)
+npm ci
+
+# 6. Run the tests
 npm test
 
-# 6. Create your .env file, then open it to fill in your values
+# 7. Create your .env file, then open it to fill in your values
 cp .env.example .env
 open -e .env     # Opens in TextEdit; save and close when done
 
-# 7. Create src/Env.gs (and .clasp.json) from .env
+# 8. Create src/Env.gs (and .clasp.json) from .env
 npm run configure
 ```
 
@@ -161,14 +237,17 @@ node --version
 git clone https://github.com/kirbsraspberrypi/backend-integrator.git
 cd backend-integrator
 
-# 5. Run the tests
+# 5. Install the project packages (exact versions from package-lock.json)
+npm ci
+
+# 6. Run the tests
 npm test
 
-# 6. Create your .env file, then open it to fill in your values
+# 7. Create your .env file, then open it to fill in your values
 Copy-Item .env.example .env
 notepad .env     # Save and close Notepad when done
 
-# 7. Create src/Env.gs (and .clasp.json) from .env
+# 8. Create src/Env.gs (and .clasp.json) from .env
 npm run configure
 ```
 
@@ -239,13 +318,14 @@ PASS  Other statuses do not trigger
 PASS  Edits outside Column D do not trigger
 PASS  Re-approving does not create a duplicate folder
 PASS  Pasting a block over rows 9-12 only processes rows 11-12
+PASS  Backfill creates folders only for approved rows 11+
 PASS  Phone regex accepts only a clean 10-digit string
 
-7 passed, 0 failed
+8 passed, 0 failed
 ```
 
 The tests use a fake sheet with the same layout as the sandbox file, so they never touch
-your real Google Sheet or Drive, and they don't need a `.env` file.
+your real Google Sheet or Drive. They don't need a `.env` file or `npm ci`.
 
 ---
 
@@ -346,6 +426,8 @@ To use it as a Google Sheets data validation rule
 | `node: command not found` / `'node' is not recognized` | Close and reopen the terminal. If it still fails, install Node.js again (see your OS section). |
 | Windows: "running scripts is disabled on this system" | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`. |
 | `node --version` shows lower than 20 | Upgrade Node.js with the steps for your OS. |
+| `npm ci` fails with "package-lock.json ... not in sync" | Run `npm install` once, then `npm ci` again. |
+| `'clasp' is not recognized` / `clasp: command not found` | Run `npm ci` in the project folder first. |
 | `git clone` asks for a password or says "not found" | The repo is private. Ask for access, then sign in to GitHub when prompted. |
 | `ERROR: No .env file found` | Create it: `cp .env.example .env` (Ubuntu/macOS) or `Copy-Item .env.example .env` (Windows). |
 | `ERROR: Please fill in PARENT_FOLDER_ID` / `SCRIPT_ID` | Open `.env` and replace the `PASTE_..._HERE` placeholder with the real ID. |
@@ -360,6 +442,7 @@ To use it as a Google Sheets data validation rule
 
 - `Approved` is matched exactly (case-sensitive), ignoring extra spaces at either end.
 - If an approved row has no student name, it is skipped and a warning is logged.
+- Folders are created by, and owned by, the Google account that ran `setup`.
 - The automation runs on edits made by people in the sheet. Changes from other scripts or API
   writes don't fire Google edit triggers.
 - After changing `.env`, run `npm run deploy` again (or repeat Option B step 3) so Google gets

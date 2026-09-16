@@ -54,6 +54,7 @@ function load() {
     console: { log() {}, warn() {} },
     DriveApp: drive.DriveApp,
     SpreadsheetApp: { getActive: () => ({ getSheetByName: () => sheet }) },
+    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     // Stand-in for src/Env.gs, which is generated from .env
     getEnv: () => ({ PARENT_FOLDER_ID: 'TEST_FOLDER_ID', SHEET_NAME: 'Sheet1' }),
   };
@@ -113,6 +114,14 @@ const tests = {
       'John Doe - Documentation Portfolio',
       'Jane Smith - Documentation Portfolio',
     ]);
+  },
+
+  'Backfill creates folders only for approved rows 11+'() {
+    const t = load();
+    t.sheet.set(10, 4, 'Approved'); // Header row: must be ignored
+    t.sheet.set(11, 4, 'Approved'); // John Doe, as in the sandbox file
+    t.context.processExistingApprovedRows();
+    assert.deepStrictEqual(t.created, ['John Doe - Documentation Portfolio']);
   },
 
   'Phone regex accepts only a clean 10-digit string'() {
