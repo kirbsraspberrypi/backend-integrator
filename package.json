@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tests/test.js",
     "login": "npx @google/clasp login",
-    "deploy": "npx @google/clasp push"
+    "configure": "node scripts/configure.js",
+    "deploy": "node scripts/configure.js --deploy && npx @google/clasp push"
   },
   "engines": {
     "node": ">=20"

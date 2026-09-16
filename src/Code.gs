@@ -6,19 +6,21 @@
  *
  * Rows 1-10 hold KPIs, instructions and headers, so they are always ignored.
  * Student records start on row 11.
+ *
+ * Your own values (Drive folder ID, sheet name) live in the .env file.
+ * "npm run configure" copies them into Env.gs, which this file reads via getEnv().
  */
 
 // ---------------------------------------------------------------------------
-// SETTINGS - change these to match your sheet and Drive folder
+// SETTINGS - fixed layout of the Intake Roster
+// (Drive folder ID and sheet name come from .env -> Env.gs)
 // ---------------------------------------------------------------------------
 const CONFIG = {
-  SHEET_NAME: 'Sheet1',          // Tab that holds the roster
   FIRST_DATA_ROW: 11,            // Rows above this are never processed
   NAME_COLUMN: 2,                // Column B - Student Name
   PHONE_COLUMN: 3,               // Column C - Mobile Phone
   STATUS_COLUMN: 4,              // Column D - Approval Status
   APPROVED_VALUE: 'Approved',
-  PARENT_FOLDER_ID: 'PASTE_TEST_DRIVE_FOLDER_ID_HERE', // From the folder's URL
   FOLDER_SUFFIX: ' - Documentation Portfolio',
 };
 
@@ -52,7 +54,7 @@ function handleEdit(e) {
   const sheet = range.getSheet();
 
   // Only watch the roster tab.
-  if (sheet.getName() !== CONFIG.SHEET_NAME) return;
+  if (sheet.getName() !== getEnv().SHEET_NAME) return;
 
   // Only watch Column D.
   const firstCol = range.getColumn();
@@ -78,7 +80,7 @@ function handleEdit(e) {
 // (e.g. John Doe on row 11, which was approved before the trigger existed)
 // ---------------------------------------------------------------------------
 function processExistingApprovedRows() {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(CONFIG.SHEET_NAME);
+  const sheet = SpreadsheetApp.getActive().getSheetByName(getEnv().SHEET_NAME);
   for (let row = CONFIG.FIRST_DATA_ROW; row <= sheet.getLastRow(); row++) {
     processRow(sheet, row);
   }
@@ -88,7 +90,7 @@ function processExistingApprovedRows() {
 // OPTIONAL - run manually to block bad phone numbers in Column C
 // ---------------------------------------------------------------------------
 function applyPhoneValidation() {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(CONFIG.SHEET_NAME);
+  const sheet = SpreadsheetApp.getActive().getSheetByName(getEnv().SHEET_NAME);
   const numRows = sheet.getMaxRows() - CONFIG.FIRST_DATA_ROW + 1;
   const phoneRange = sheet.getRange(CONFIG.FIRST_DATA_ROW, CONFIG.PHONE_COLUMN, numRows, 1);
   const firstCell = phoneRange.getCell(1, 1).getA1Notation(); // e.g. "C11"
@@ -120,7 +122,7 @@ function processRow(sheet, row) {
   }
 
   const folderName = studentName + CONFIG.FOLDER_SUFFIX;
-  const parent = DriveApp.getFolderById(CONFIG.PARENT_FOLDER_ID);
+  const parent = DriveApp.getFolderById(getEnv().PARENT_FOLDER_ID);
 
   // Don't create a duplicate if the status is toggled more than once.
   if (parent.getFoldersByName(folderName).hasNext()) {

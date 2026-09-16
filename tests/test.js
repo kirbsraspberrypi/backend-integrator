@@ -54,6 +54,8 @@ function load() {
     console: { log() {}, warn() {} },
     DriveApp: drive.DriveApp,
     SpreadsheetApp: { getActive: () => ({ getSheetByName: () => sheet }) },
+    // Stand-in for src/Env.gs, which is generated from .env
+    getEnv: () => ({ PARENT_FOLDER_ID: 'TEST_FOLDER_ID', SHEET_NAME: 'Sheet1' }),
   };
   vm.createContext(context);
   const code = fs.readFileSync(path.join(__dirname, '..', 'src', 'Code.gs'), 'utf8');

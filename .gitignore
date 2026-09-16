@@ -1,5 +1,13 @@
 NOTES.md
-static/
+
+# Local settings (created from .env.example)
+.env
+.clasp.json
+src/Env.gs
+
+# System / dependencies
 node_modules/
 .DS_Store
-.clasp.json
+
+# Client source documents
+static/
